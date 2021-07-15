@@ -1,0 +1,25 @@
+{
+  "name": "bald-bot",
+  "version": "1.0.0",
+  "description": "A discord bot",
+  "main": "src/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rachnus/Bald-Bot.git"
+  },
+  "author": "Rachnus",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Rachnus/Bald-Bot/issues"
+  },
+  "homepage": "https://github.com/Rachnus/Bald-Bot#readme",
+  "dependencies": {
+    "client-oauth2": "^4.3.3",
+    "discord.js": "^12.5.3",
+    "warcraftlogsapi-js": "file:../warcraftlogsapi-js",
+    "wowgamedataapi-js": "file:../wowgamedataapi-js"
+  }
+}

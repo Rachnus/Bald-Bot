@@ -168,8 +168,6 @@ class ChatProcessHandler
         var prot = ChatProcessHandler.m_Prototypes.get(processName);
         if(prot != null)
             prot.m_fStartProcess(msg, botProcess);
-       /* if(processName === "Event Setup")
-            Events.StartCreateEventProcess(msg, process);*/
     }
 
     /**
@@ -202,10 +200,6 @@ class ChatProcessHandler
             currStep.m_szResponse = "";
     
         var passedCheck = true;
-    
-        // Custom checks for certain steps
-        /*if(botProcess.m_szName === "Event Setup")
-            passedCheck = Events.HandleCreateEventProcess(msg, botProcess);*/
     
         var prot = ChatProcessHandler.m_Prototypes.get(botProcess.m_szName);
         if(prot == null)
@@ -250,11 +244,7 @@ class ChatProcessHandler
             return false;
     
         var botProcess = ChatProcessHandler.m_Processes.get(msg.author.id);
-        
-        // All steps finished
-        /*if(botProcess.m_szName === "Event Setup")
-            Events.FinishCreateEventProcess(msg, botProcess);*/
-    
+
         var prot = ChatProcessHandler.m_Prototypes.get(botProcess.m_szName);
         if(prot == null)
         {
@@ -301,7 +291,6 @@ class ChatProcessHandler
         prot.m_fFinishProcess = finishFunc;
         ChatProcessHandler.m_Prototypes.set(name, prot);
     }
-    // Variables
 
     static m_Processes = new Map();
     static m_Prototypes = new Map();

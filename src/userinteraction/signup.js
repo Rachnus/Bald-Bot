@@ -34,6 +34,14 @@ class EventSignup
         this.m_Spec = null;
         this.m_Race = null;
         this.m_Status = null;
+
+        this.m_iFrostResistance = null;
+        this.m_iFireResistance = null;
+        this.m_iNatureResistance = null;
+        this.m_iShadowResistance = null;
+        this.m_iArcaneResistance = null;
+
+        this.m_bAttuned = null;
     }
 }
 
@@ -41,51 +49,31 @@ function HandleSignup(msg)
 {
     msg.channel.messages.fetch({after: 1, limit: 1}).then((result) => 
     {
-        var signupMessage = result.first().content;
-        var lines = signupMessage.split("\n");
-
-        var signupFormat = null;
-        var example = null;
-
-        for(var i = 0; i < lines.length; i++)
-        {
-            // Find the signup format line, once found, +1 it to get the format string
-            if(lines[i].startsWith("**Signup Format**"))
-            signupFormat = lines[i+1];
-
-            if(lines[i].startsWith("**Example**"))
-                example = lines[i+1];
-        }
-
-        if(signupFormat == null)
-        {
-            console.log("Error: Cannot find signup format (HandleSignup)");
-            return false;
-        }
-
-        var untouchedFormat = signupFormat;
-
-        signupFormat = signupFormat.replace("/\n/g","");
-        signupFormat = signupFormat.replace(/ /g, "");
-
-        var ret = CheckSignupFormat(msg.content, signupFormat);
+        var ret = CheckSignup(msg.content);
 
         if(ret != SignupFormatError.SUCCESS)
         {
             var retString = `Please follow the signup format when signing up!\n\n`;
 
-            retString += `**REQUIRED FORMAT**:\n`;
-            retString += `${untouchedFormat}\n\n`;
+            retString += "**Required signup fields**:\n"
+            retString += `Name - Class - Spec - Race`
 
-            retString += `**OPTIONAL FIELDS**:\n`;
-            retString += `- **Alert**: If this is in your signup,  a bot will message you once you get accepted/declined or put on hold\n\n`;
+            retString += "\n\n**Optional signup fields**:\n"
+            retString += `FrR - FR - NR - SR - AR - Attuned - Alert - Other`
 
-            retString += `**You may also add any additional info to your sign up at the end of your message, such as ${example} - Can tank NR hydros**`;
+            retString += "\n\n**Signup Field Legend:**\`\`\`c";
+            retString += `\nFrR     Frost resistance   Example: 'Notbald - Warrior - Prot - Human - 180 FrR'`;
+            retString += `\nFR      Fire resistance    Example: 'Notbald - Warrior - Prot - Human - 180 FR'`;
+            retString += `\nNR      Nature resistance  Example: 'Notbald - Warrior - Prot - Human - 180 NR'`;
+            retString += `\nSR      Shadow resistance  Example: 'Notbald - Warrior - Prot - Human - 180 SR'`;
+            retString += `\nAR      Arcane resistance  Example: 'Notbald - Warrior - Prot - Human - 180 AR'`;
+            retString += `\nAlert                      Example: 'Notbald - Warrior - Prot - Human - Alert'`;
+            retString += `\nAttuned                    Example: 'Notbald - Warrior - Prot - Human - Attuned to kara'\`\`\``;
 
             switch(ret)
             {
                 case SignupFormatError.CLASS:
-                    retString += `\n\n**ERROR**:\nInvalid class name\n\n`;
+                    retString += `\n\n**ERROR**:\nCould not find a class in your signup\n\n`;
                     retString += `**CLASS LIST**:`;
                     for (const [key, value] of WOWAPI.Character.g_Classes.entries()) 
                         retString += `\n${key}`;
@@ -93,17 +81,17 @@ function HandleSignup(msg)
                     break;
 
                 case SignupFormatError.SPEC:
-                    let clsName  = GetFieldFromSignup(msg.content, signupFormat, "class");
+                    let clsName = GetFieldFromSignup(msg.content, "class");
                     let cls = WOWAPI.Character.FindClass(clsName);
 
-                    retString += `\n\n**ERROR**:\nInvalid spec\n\n`;
+                    retString += `\n\n**ERROR**:\nCould not find a valid spec in your sign up\n\n`;
                     retString += `**SPEC LIST FOR ${cls.m_szName.toUpperCase()}**:`;
                     for (const [key, value] of cls.m_Specs.entries()) 
                         retString += `\n${key}`;
 
                     break;
                 case SignupFormatError.RACE:
-                    retString += `\n\n**ERROR**:\nInvalid race\n\n`;
+                    retString += `\n\n**ERROR**:\nCould not find a valid race in your signup\n\n`;
                     retString += `**RACE LIST**:`;
                     for (const [key, value] of WOWAPI.Character.g_Races.entries()) 
                         retString += `\n${key}`;
@@ -118,102 +106,140 @@ function HandleSignup(msg)
     });
 }
 
-function GetFieldFromSignup(signupMessage, format, field)
+function GetFieldFromSignup(signupMessage, field)
 {
     var signupFields = signupMessage.replace(/ /g, "").split("-");
-    var formatFields = format.replace(/ /g, "").split("-");
 
-    if(signupFields.length < formatFields.length)
-        return "";
+    if(field === "name")
+        return signupFields[0];
 
     // Get fields required for other fields first... such as Class, since we need the class to get the spec
-    for(var i = 0; i < formatFields.length; i++)
+    for(var i = 1; i < signupFields.length; i++)
     {
+        
         // Check for valid class field
-        if(formatFields[i].toLowerCase().includes(field))
-            return signupFields[i];
+        var checkField = signupFields[i].toLowerCase();
+
+        if(field === "class")
+        {
+            var cls = WOWAPI.Character.FindClass(checkField);
+            if(cls != null)
+                return checkField;
+        }
+        else if(field === "spec")
+        {
+            // some lazy recursion
+            var classField = GetFieldFromSignup(signupMessage, "class");
+            if(classField === "")
+                continue;
+
+            var cls = WOWAPI.Character.FindClass(classField);
+            if(cls == null)
+                continue;
+            
+            var spec = cls.FindSpec(checkField);
+            if(spec == null)
+                continue;
+            
+            return checkField;
+        }
+        else if(field === "race")
+        {
+            var cls = WOWAPI.Character.FindRace(checkField);
+            if(cls != null)
+                return checkField;
+        }
+        else if(field === "frr")
+        {
+            var num = checkField.replace(/ /g, "").replace("frr", "");
+            if(checkField.includes("frr") && Util.IsNumeric(num))
+                return num;
+        }
+        else if(field === "fr")
+        {
+            var num = checkField.replace(/ /g, "").replace("fr", "");
+            if(checkField.includes("fr") && Util.IsNumeric(num))
+                return num;
+        }
+        else if(field === "nr")
+        {
+            var num = checkField.replace(/ /g, "").replace("nr", "");
+            if(checkField.includes("nr") && Util.IsNumeric(num))
+                return num;
+        }
+        else if(field === "sr")
+        {
+            var num = checkField.replace(/ /g, "").replace("sr", "");
+            if(checkField.includes("sr") && Util.IsNumeric(num))
+                return num;
+        }
+        else if(field === "ar")
+        {
+            var num = checkField.replace(/ /g, "").replace("ar", "");
+            if(checkField.includes("ar") && Util.IsNumeric(num))
+                return num;
+        }
+        else if(field === "attuned")
+        {
+            if(checkField.includes("attuned"))
+            {
+                if(checkField.includes("no"))
+                    return "nattuned";
+                else
+                    return "attuned";
+            }
+        }
+             
     }
     return "";
 }
 
-function CheckSignupFormat(signupMessage, format)
+function CheckSignup(signupMessage)
 {
-    var signupFields = signupMessage.replace(/ /g, "").split("-");
-    var formatFields = format.replace(/ /g, "").split("-");
-
-    if(signupFields.length < formatFields.length)
-    {
-        console.log(signupFields);
-        console.log(formatFields);
-        return SignupFormatError.FIELDS;
-    }
-
-    var classIndex  = -1;
-    var specIndex   = -1;
-    var raceIndex   = -1;
-
-    var frostIndex  = -1;
-    var fireIndex   = -1;
-    var natureIndex = -1;
-    var shadowIndex = -1;
-    var arcaneIndex = -1;
-
     var cls = null;
     var spec = null;
+    var race = null;
 
-    // Get fields required for other fields first... such as Class, since we need the class to get the spec
-    for(var i = 0; i < formatFields.length; i++)
-    {
-        // Check for valid class field
-        if(formatFields[i].toLowerCase().includes("class"))   classIndex = i;
-        if(formatFields[i].toLowerCase().includes("spec"))    specIndex = i;
-        if(formatFields[i].toLowerCase().includes("race"))    raceIndex = i;
+    var signupClass   = GetFieldFromSignup(signupMessage, "class");
+    var signupSpec    = GetFieldFromSignup(signupMessage, "spec");
+    var signupRace    = GetFieldFromSignup(signupMessage, "race");
 
-        if(formatFields[i].toLowerCase().includes("frost"))   frostIndex = i;
-        if(formatFields[i].toLowerCase().includes("fire"))    fireIndex = i;
-        if(formatFields[i].toLowerCase().includes("nature"))  natureIndex = i;
-        if(formatFields[i].toLowerCase().includes("shadow"))  shadowIndex = i;
-        if(formatFields[i].toLowerCase().includes("arcane"))  arcaneIndex = i;
-    }
+    var signupFrost   = GetFieldFromSignup(signupMessage, "frr");
+    var signupFire    = GetFieldFromSignup(signupMessage, "fr");
+    var signupNature  = GetFieldFromSignup(signupMessage, "nr");
+    var signupShadow  = GetFieldFromSignup(signupMessage, "sr");
+    var signupArcane  = GetFieldFromSignup(signupMessage, "ar");
 
-    if(classIndex != -1)
-    {
-        cls = WOWAPI.Character.FindClass(signupFields[classIndex]);
-        if(cls == null)
-            return SignupFormatError.CLASS;
-    }
+    if(signupClass === "") return SignupFormatError.CLASS;
+    if(signupSpec === "")  return SignupFormatError.SPEC;
+    if(signupRace === "")  return SignupFormatError.RACE;
 
-    if(specIndex != -1)
-    {
-        if(cls != null)
-        {
-            spec = cls.FindSpec(signupFields[specIndex]);
-            if(spec == null)
-                return SignupFormatError.SPEC;
-        }
-    }
+    cls = WOWAPI.Character.FindClass(signupClass);
+    if(cls == null)
+        return SignupFormatError.CLASS; 
 
-    if(raceIndex != -1)
-    {
-        race = WOWAPI.Character.FindRace(signupFields[raceIndex]);
-        if(race == null)
-            return SignupFormatError.RACE;
-    }
+    spec = cls.FindSpec(signupSpec);
+    if(spec == null)
+        return SignupFormatError.SPEC;
 
-    if(frostIndex != -1)
-        if(!Util.IsNumeric(signupFields[frostIndex]) && Util.IsIntBetween(parseInt(signupFields[frostIndex]), RESISTANCE_MIN, RESISTANCE_MAX))
+    race = WOWAPI.Character.FindRace(signupRace);
+    if(race == null)
+        return SignupFormatError.RACE;
+
+    if(signupFrost != "")
+        if(!Util.IsNumeric(signupFrost) && Util.IsIntBetween(parseInt(signupFrost), RESISTANCE_MIN, RESISTANCE_MAX))
             return SignupFormatError.RESISTANCE;
-    if(fireIndex != -1)
-        if(!Util.IsNumeric(signupFields[fireIndex]) && Util.IsIntBetween(parseInt(signupFields[fireIndex]), RESISTANCE_MIN, RESISTANCE_MAX))
+    if(signupFire != "")
+        if(!Util.IsNumeric(signupFire) && Util.IsIntBetween(parseInt(signupFire), RESISTANCE_MIN, RESISTANCE_MAX))
             return SignupFormatError.RESISTANCE;
-    if(natureIndex != -1)
-        if(!Util.IsNumeric(signupFields[natureIndex]) && Util.IsIntBetween(parseInt(signupFields[natureIndex]), RESISTANCE_MIN, RESISTANCE_MAX))
+    if(signupNature != "")
+        if(!Util.IsNumeric(signupNature) && Util.IsIntBetween(parseInt(signupNature), RESISTANCE_MIN, RESISTANCE_MAX))
             return SignupFormatError.RESISTANCE;
-    if(shadowIndex != -1)
-        if(!Util.IsNumeric(signupFields[shadowIndex]) && Util.IsIntBetween(parseInt(signupFields[shadowIndex]), RESISTANCE_MIN, RESISTANCE_MAX))
+    if(signupShadow != "")
+        if(!Util.IsNumeric(signupShadow) && Util.IsIntBetween(parseInt(signupShadow), RESISTANCE_MIN, RESISTANCE_MAX))
             return SignupFormatError.RESISTANCE;
-    if(arcaneIndex != -1)
-        if(!Util.IsNumeric(signupFields[arcaneIndex]) && Util.IsIntBetween(parseInt(signupFields[arcaneIndex]), RESISTANCE_MIN, RESISTANCE_MAX))
+    if(signupArcane != "")
+        if(!Util.IsNumeric(signupArcane) && Util.IsIntBetween(parseInt(signupArcane), RESISTANCE_MIN, RESISTANCE_MAX))
             return SignupFormatError.RESISTANCE;
 
     return SignupFormatError.SUCCESS;
@@ -268,31 +294,13 @@ function GetSignupsFromChannel(signupChannel)
     {
         signupChannel.messages.fetch({after: 1, limit: 100}).then((signupMessages) => 
         {
-            var signupMessage = signupMessages.last().content;
-            var lines = signupMessage.split("\n");
-
-            var signupFormat = null;
-
-            for(var i = 0; i < lines.length; i++)
-            {
-                // Find the signup format line, once found, +1 it to get the format string
-                if(lines[i].startsWith("**Signup Format**"))
-                    signupFormat = lines[i+1];
-            }
-
-            if(signupFormat == null)
-            {
-                console.log("Error: Cannot find signup format (GetSignupsFromChannel)");
-                return false;
-            }
-
-            signupFormat = signupFormat.replace("/\n/g","");
-            signupFormat = signupFormat.replace(/ /g, "");
-
             var result = [];
 
             for (const [key, signupMsg] of signupMessages.entries())
             {
+                if(signupMsg.content.startsWith("**Signup for"))
+                    continue;
+
                 var thumbsUp   = signupMsg.reactions.cache.find(reaction => reaction._emoji.name === Util.EMOJI_THUMBS_UP);
                 var thumbsDown = signupMsg.reactions.cache.find(reaction => reaction._emoji.name === Util.EMOJI_THUMBS_DOWN);
                 var hourglass  = signupMsg.reactions.cache.find(reaction => reaction._emoji.name === Util.EMOJI_HOURGLASS);
@@ -300,10 +308,18 @@ function GetSignupsFromChannel(signupChannel)
                 if(hourglass == null)
                     hourglass = signupMsg.reactions.cache.find(reaction => reaction._emoji.name === Util.EMOJI_HOURGLASS2);
 
-                var signupName  = GetFieldFromSignup(signupMsg.content, signupFormat, "name");
-                var signupClass = GetFieldFromSignup(signupMsg.content, signupFormat, "class");
-                var signupSpec  = GetFieldFromSignup(signupMsg.content, signupFormat, "spec");
-                var signupRace  = GetFieldFromSignup(signupMsg.content, signupFormat, "race");
+                var signupName  = GetFieldFromSignup(signupMsg.content, "name");
+                var signupClass = GetFieldFromSignup(signupMsg.content, "class");
+                var signupSpec  = GetFieldFromSignup(signupMsg.content, "spec");
+                var signupRace  = GetFieldFromSignup(signupMsg.content, "race");
+
+                var signupFrost   = GetFieldFromSignup(signupMsg.content, "frr");
+                var signupFire    = GetFieldFromSignup(signupMsg.content, "fr");
+                var signupNature  = GetFieldFromSignup(signupMsg.content, "nr");
+                var signupShadow  = GetFieldFromSignup(signupMsg.content, "sr");
+                var signupArcane  = GetFieldFromSignup(signupMsg.content, "ar");
+            
+                var signupAttuned = GetFieldFromSignup(signupMsg.content, "attuned");
 
                 var gameRace = WOWAPI.Character.FindRace(signupRace);
                 var gameCls = WOWAPI.Character.FindClass(signupClass);
@@ -312,7 +328,7 @@ function GetSignupsFromChannel(signupChannel)
                     gameSpec = gameCls.FindSpec(signupSpec);
 
                 // if class & spec is invalid, skip
-                if(gameCls == null || gameSpec == null)
+                if(gameCls == null || gameSpec == null || gameRace == null)
                     continue;
 
                 // Uppercase first letter in name
@@ -325,6 +341,16 @@ function GetSignupsFromChannel(signupChannel)
                 signup.m_Race = gameRace;
                 signup.m_Spec = gameSpec;
                 signup.m_Status = SignupStatus.PENDING;
+
+                signup.m_iFrostResistance  = Number(signupFrost);
+                signup.m_iFireResistance   = Number(signupFire);
+                signup.m_iNatureResistance = Number(signupNature);
+                signup.m_iShadowResistance = Number(signupShadow);
+                signup.m_iArcaneResistance = Number(signupArcane);
+
+                console.log(signup.m_iFrostResistance + " " + signup.m_iNatureResistance);
+
+                signup.m_bAttuned = (signupAttuned === "attuned"?true:(signupAttuned==="nattuned"?false:null));
 
                 if(thumbsUp != null && thumbsUp.count >= 1)
                 {

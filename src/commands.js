@@ -143,7 +143,8 @@ function CmdParses(bot, msg, command, args)
 	var opt = new WCLOGSAPI.Rankings.WCLOGSRankingOptions();
 	opt.m_Metric = metricType;
 	
-	WCLOGSAPI.Rankings.GetParses(name, server, region, bossEnc.m_iID, opt).then((result) => {
+	WCLOGSAPI.Rankings.GetParses(name, server, region, bossEnc.m_iID, opt).then((result) => 
+	{
 
 		if(result == null)
 			return false;
@@ -164,7 +165,8 @@ function CmdParses(bot, msg, command, args)
 		embedStr += '\n';
 
 		var count = 1;
-		for(const val of result.encounterRankings.m_Ranks) {
+		for(const val of result.encounterRankings.m_Ranks) 
+		{
 
 			var date = new Date(val.m_iStartTime);
 			var dateFormat = date.getDate().toString().padStart(2, "0") + '/' + (date.getMonth()+1).toString().padStart(2, "0") + '/' + date.getFullYear();

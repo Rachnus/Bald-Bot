@@ -14,14 +14,17 @@ const WCLOGSAPI    = require('warcraftlogsapi-js');
 
 
 // Initialize APIs
-WOWAPI.InitAPI().then(() => {
+WOWAPI.InitAPI().then(() => 
+{
     Init.WOWAPI_LOADED = true;
-    WCLOGSAPI.InitAPI(Token.WCRAFTLOGS_AUTH).then(() => {
+    WCLOGSAPI.InitAPI(Token.WCRAFTLOGS_AUTH).then(() => 
+    {
         Init.WCLOGSAPI_LOADED = true;
     })
 });
 
-bot.on('ready', () => {
+bot.on('ready', () => 
+{
     console.log('BALDBOT ONLINE');
 })
 
@@ -46,7 +49,7 @@ bot.on('message', msg =>
         return;
     }
 
-	if(!msg.content.startsWith(Commands.COMMAND_PREFIX) || msg.author.bot)
+    if(!msg.content.startsWith(Commands.COMMAND_PREFIX) || msg.author.bot)
         return;
 
     const args = msg.content.slice(Commands.COMMAND_PREFIX.length).split(' ');
@@ -67,7 +70,26 @@ bot.on('message', msg =>
     }
 })
 
-bot.on('messageReactionAdd', async (reaction, user) => {
+bot.on('messageReactionRemove', async (reaction, user) => 
+{
+    // dont care about DMs
+    if(reaction.message.channel.type === "dm")
+        return;
+    
+    // we only care about channels under a catergory called SIGNUP
+    var parent = reaction.message.guild.channels.cache.get(reaction.message.channel.parentID);
+    if(parent == null || parent.name != Util.CATEGORY_SIGNUP)
+        return;
+
+    // dont care about bot added reactions
+    if(user.id === bot.user.id)
+        return;
+
+    Events.GenerateEventMessages(reaction.message.channel);
+});
+
+bot.on('messageReactionAdd', async (reaction, user) => 
+{
 
     // dont care about DMs
     if(reaction.message.channel.type === "dm")
@@ -78,13 +100,21 @@ bot.on('messageReactionAdd', async (reaction, user) => {
     if(parent == null || parent.name != Util.CATEGORY_SIGNUP)
         return;
 
+    // dont care about bot added reactions
+    if(user.id === bot.user.id)
+        return;
+
 	// When we receive a reaction we check if the reaction is partial or not
-	if (reaction.partial) {
+	if (reaction.partial) 
+    {
         console.log("partial reaction");
 		// If the message this reaction belongs to was removed the fetching might result in an API error, which we need to handle
-		try {
+		try 
+        {
 			await reaction.fetch();
-		} catch (error) {
+		} 
+        catch (error) 
+        {
 			console.error('Something went wrong when fetching the message: ', error);
 			// Return as `reaction.message.author` may be undefined/null
 			return;
@@ -98,8 +128,6 @@ bot.on('messageReactionAdd', async (reaction, user) => {
 
     var message = reaction.message.content;
     var emote = reaction.emoji.identifier;
-
-    console.log(emote);
 
     if((message.includes('ALERT') || message.includes('alert')) && reaction.count == 1)
     {
@@ -120,7 +148,7 @@ bot.on('messageReactionAdd', async (reaction, user) => {
         }
     }
 
-    Events.GenerateRosterMessage(reaction.message.channel);
+    Events.GenerateEventMessages(reaction.message.channel);
 });
 
 

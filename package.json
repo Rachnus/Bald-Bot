@@ -19,6 +19,7 @@
   "dependencies": {
     "client-oauth2": "^4.3.3",
     "discord.js": "^12.5.3",
+    "node-fetch": "^2.6.1",
     "warcraftlogsapi-js": "file:../warcraftlogsapi-js",
     "wowgamedataapi-js": "file:../wowgamedataapi-js"
   }

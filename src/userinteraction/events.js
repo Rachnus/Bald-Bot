@@ -1,13 +1,13 @@
 
 const WOWAPI       = require('wowgamedataapi-js');
+const FETCH        = require('node-fetch');
 
 var Util           = require('../util');
 var Signup         = require('./signup');
 var ChatProcess = require('./chatprocess');
 
-const EVENT_LIST_ROSTER_PREFIX = "\`\`\`prolog\nROSTER\n\n";
-const EVENT_LIST_INFO_PREFIX   = "\`\`\`prolog\nINFO\n\n";
-const EVENT_LIST_GROUPS_PREFIX = "\`\`\`prolog\nGROUPS\n\n";
+const EVENT_LIST_ROSTER_PREFIX = "ROSTER";
+const EVENT_LIST_INFO_PREFIX   = "INFO";
 
 ChatProcess.ChatProcessHandler.AddPrototype("Event Setup", StartCreateEventProcess, HandleCreateEventProcess, FinishCreateEventProcess);
 
@@ -36,10 +36,13 @@ function HandleCreateEventProcess(msg, process)
     if(currStep.m_szName === "RAIDS")
     {
         var errorMsg = "Error: Invalid raids:";
+
         var raidList = currStep.m_szResponse.split(",");
 
         var newResponse = null;
         var errors = 0;
+
+        var raidSize = -1;
         for(var i = 0; i < raidList.length; i++)
         {
             var gameMap = WOWAPI.GameMap.FindGameMap(raidList[i]);
@@ -50,6 +53,15 @@ function HandleCreateEventProcess(msg, process)
             }
             else
             {
+                if(raidSize != -1)
+                {
+                    if(raidSize != gameMap.m_iMaxPlayers)
+                    {
+                        errors++;
+                        errorMsg = "\n\nError: All raids must have the same raid size";
+                    }
+                }
+                raidSize = gameMap.m_iMaxPlayers;
                 console.log(gameMap.m_szName);
 
                 if(newResponse == null)
@@ -138,9 +150,8 @@ function FinishCreateEventProcess(msg, process)
 
             let msg = GenerateEventHeader(process, signupChannel);
             eventChannel.send(msg);
-            eventChannel.send(`${EVENT_LIST_ROSTER_PREFIX}\`\`\``);
-            eventChannel.send(`${EVENT_LIST_INFO_PREFIX}\`\`\``);
-            eventChannel.send(`${EVENT_LIST_GROUPS_PREFIX}\`\`\``);
+            eventChannel.send(`\`\`\`prolog\n${EVENT_LIST_ROSTER_PREFIX}\`\`\``);
+            eventChannel.send(`\`\`\`prolog\n${EVENT_LIST_INFO_PREFIX}\`\`\``);
         })
     })
 }
@@ -202,9 +213,7 @@ function GenerateEventHeader(process, signupChannel)
     for(var i = 1; i < raidList.length; i++)
         raids += " & " + raidList[i];
 
-    var message = "@everyone";
-
-    message += `**${title}**`;
+    var message = `**${title}**`;
     if(raidList.length == 1)
         message += `\n\n**Raid**: `;
     else
@@ -228,9 +237,31 @@ function GenerateEventHeader(process, signupChannel)
 }
 
 
-function GenerateRosterMessage(signups)
+function GenerateRosterMessage(signups, eventMessage)
 {
-    var rosterStr = EVENT_LIST_ROSTER_PREFIX;
+    var lines = eventMessage.split("\n");
+    var raids = []
+
+    for(var i = 0; i < lines.length; i++)
+    {
+        if(lines[i].startsWith("**Raid"))
+        {
+            var raidsStr = lines[i].replace("**Raids**: ", "").replace("**Raid**: ", "").replace(/ & /g, "&");
+            if(raidsStr.includes('&'))
+                raids = raidsStr.split("&");
+            else
+                raids.push(raidsStr);
+        }
+    }
+
+    var gameMap = WOWAPI.GameMap.FindGameMap(raids[0]);
+    if(gameMap == null)
+    {
+        console.log(`Error: Could not find raid '${raids[0]}' (GenerateRosterMessage)`);
+        return;
+    }
+
+    var rosterStr = `${EVENT_LIST_ROSTER_PREFIX}\n\n`;
 
     const rosterPadding = 20;
     const signupNamePadding = 12;
@@ -272,7 +303,7 @@ function GenerateRosterMessage(signups)
     }
 
     rosterStr += `TOTAL SIGNUPS: ${signups.length}\n`;
-    rosterStr += `RAID SIZE: ${tankList.length + dpsList.length + healerList.length}/25\n`;
+    rosterStr += `RAID SIZE: ${tankList.length + dpsList.length + healerList.length}/${gameMap.m_iMaxPlayers}\n`;
     rosterStr += `BENCH COUNT: ${bTankList.length + bDpsList.length + bHealerList.length}\n\n`;
 
     rosterStr += `'TANKS'`.padEnd(rosterPadding);
@@ -324,13 +355,12 @@ function GenerateRosterMessage(signups)
         }
     }
 
-    rosterStr += '```';
     return rosterStr;
 }
 
-function GenerateInfoMessage(signups)
+function GenerateInfoMessage(signups, eventMessage)
 {
-    var infoStr = EVENT_LIST_INFO_PREFIX;
+    var infoStr = `${EVENT_LIST_INFO_PREFIX}\n\n`;
 
     infoStr += "#".padEnd(4);
     infoStr += "Name".padEnd(14);
@@ -360,15 +390,7 @@ function GenerateInfoMessage(signups)
         infoStr += `${(signup.m_bAttuned==null)?'?':(signup.m_bAttuned?"Yes":"No")}\n`;
     }
 
-    infoStr += '```';
     return infoStr;
-}
-
-function GenerateGroupsMessage(signups)
-{
-    var groupsStr = EVENT_LIST_GROUPS_PREFIX;
-    groupsStr += '```';
-    return groupsStr;
 }
 
 /**
@@ -382,31 +404,41 @@ function GenerateEventMessages(signupChannel)
     {
         Signup.GetEventChannelFromSignupChannel(signupChannel).then((eventChannel) =>
         {
-            eventChannel.messages.fetch({after: 1, limit: 100}).then((eventMessages) => 
+            eventChannel.messages.fetch({after: 1, limit: 100}).then(async (eventMessages) => 
             {
                 var rosterMsg = null;
                 var infoMsg = null;
-                var groupsMsg = null;
 
                 for (const [key, eventMsg] of eventMessages.entries()) 
                 {
-                    if(eventMsg.content.startsWith(EVENT_LIST_ROSTER_PREFIX))
-                        rosterMsg = eventMsg;
-                    else if(eventMsg.content.startsWith(EVENT_LIST_INFO_PREFIX))
-                        infoMsg = eventMsg;
-                    else if(eventMsg.content.startsWith(EVENT_LIST_GROUPS_PREFIX))
-                        groupsMsg = eventMsg;
+                    var att = eventMsg.attachments.first();
+                    if(att != null)
+                    {
+                        var response = await FETCH(att.url);
+
+                        if(!response.ok)
+                            continue;
+                        
+                        var text = await response.text();
+                        if(text.startsWith(EVENT_LIST_ROSTER_PREFIX))
+                            rosterMsg = eventMsg;
+                        else if(text.startsWith(EVENT_LIST_INFO_PREFIX))
+                            infoMsg = eventMsg;
+                    }
+                    else
+                    {
+                        if(eventMsg.content.startsWith(`\`\`\`prolog\n${EVENT_LIST_ROSTER_PREFIX}`))
+                            rosterMsg = eventMsg;
+                        else if(eventMsg.content.startsWith(`\`\`\`prolog\n${EVENT_LIST_INFO_PREFIX}`))
+                            infoMsg = eventMsg;
+                    } 
                 }
 
-                var rosterStr  = GenerateRosterMessage(result);
-                var infoStr    = GenerateInfoMessage(result);
-                var groupStr   = GenerateGroupsMessage(result);
+                var rosterStr  = GenerateRosterMessage(result, eventMessages.last().content);
+                var infoStr    = GenerateInfoMessage(result, eventMessages.last().content);
 
-                // If message is found, edit it, else send new one
-                if(rosterMsg != null) rosterMsg.edit(rosterStr); else eventChannel.send(rosterStr);
-                if(infoMsg != null)   infoMsg.edit(infoStr);     else eventChannel.send(infoStr);
-                if(groupsMsg != null) groupsMsg.edit(groupStr);  else eventChannel.send(groupStr);
-
+                Util.EditDiscordMessage(eventChannel, rosterMsg,  rosterStr, true, 'roster', 'prolog');
+                Util.EditDiscordMessage(eventChannel, infoMsg,    infoStr,   true, 'info',   'prolog');
             });
         });
     });

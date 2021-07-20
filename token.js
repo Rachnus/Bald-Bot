@@ -8,10 +8,16 @@ const WCRAFTLOGS_AUTH  = new ClientOAuth2({
     accessTokenUri:   'https://classic.warcraftlogs.com/oauth/token',
     authorizationUri: 'https://classic.warcraftlogs.com/oauth/authorize',
     redirectUri:      'http://example.com/auth/github/callback'
-})  
+})
+
+const WOW_REALM = "Firemaw";
+const WOW_REGION = "EU";
 
 module.exports = 
 {
 	TOKEN,
-	WCRAFTLOGS_AUTH
+	WCRAFTLOGS_AUTH,
+
+    WOW_REALM,
+    WOW_REGION,
 };

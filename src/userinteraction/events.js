@@ -236,7 +236,6 @@ function GenerateEventHeader(process, signupChannel)
     return message;
 }
 
-
 function GenerateRosterMessage(signups, eventMessage)
 {
     var lines = eventMessage.split("\n");

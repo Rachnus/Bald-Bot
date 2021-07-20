@@ -140,60 +140,65 @@ function CmdParses(bot, msg, command, args)
 	if(metricType == null)
 		return false;
 
-	var opt = new WCLOGSAPI.Rankings.WCLOGSRankingOptions();
+	var opt = new WCLOGSAPI.Types.WCLOGSRankingOptions();
 	opt.m_Metric = metricType;
 	
-	WCLOGSAPI.Rankings.GetParses(name, server, region, bossEnc.m_iID, opt).then((result) => 
+	WCLOGSAPI.Rankings.GetParses([new WCLOGSAPI.Rankings.QueryParse(name, server, region, bossEnc.m_iID, opt)]).then((result) => 
 	{
-
-		if(result == null)
-			return false;
-
-		var clsData = WCLOGSAPI.Classes.GetClass(result.raw.classID);
-
-		var embedStr = null;
-		embedStr = "\`\`\`prolog\n";
-
-		embedStr += `${name} @ ${server}-${region.toUpperCase()} (${clsData.m_szName})\n`;
-		embedStr += `>>\"${boss}\"<<\n\n`;
-		embedStr += '#'.padEnd(4);
-		embedStr += 'Parse'.padEnd(8);
-		embedStr += metric.toUpperCase().padEnd(10);
-		embedStr += 'Kill Time'.padEnd(12);
-		embedStr += 'Date'.padEnd(12);
-		embedStr += 'Spec';
-		embedStr += '\n';
-
-		var count = 1;
-		for(const val of result.encounterRankings.m_Ranks) 
+		for(var i = 0; i < result.length; i++)
 		{
+			if(result == null || result[i].m_Ranks.length <= 0)
+				return false;
 
-			var date = new Date(val.m_iStartTime);
-			var dateFormat = date.getDate().toString().padStart(2, "0") + '/' + (date.getMonth()+1).toString().padStart(2, "0") + '/' + date.getFullYear();
+			var char = WCLOGSAPI.Character.GetCachedCharacter(new WCLOGSAPI.Character.QueryCharacter(name, server, region));
 
-			embedStr += `${count++}`.padEnd(4);
-			embedStr += `${val.m_flRankPercent.toFixed(1)}`.padEnd(8);
-			embedStr += `${val.m_flAmount.toFixed(1)}`.padEnd(10);
-			embedStr += `${val.m_iDuration/1000}s`.padEnd(12);
-			embedStr += `${dateFormat}`.padEnd(12);
-			embedStr += `\'${val.m_szSpec}\'\n`;	
+			var clsData = WCLOGSAPI.Classes.GetClass(char.m_iClassID);
+
+			var embedStr = null;
+			embedStr = "\`\`\`prolog\n";
+
+			embedStr += `${name} @ ${server}-${region.toUpperCase()} (${clsData.m_szName})\n`;
+			embedStr += `>>\"${boss}\"<<\n\n`;
+			embedStr += '#'.padEnd(4);
+			embedStr += 'Parse'.padEnd(8);
+			embedStr += metric.toUpperCase().padEnd(10);
+			embedStr += 'Kill Time'.padEnd(12);
+			embedStr += 'Date'.padEnd(12);
+			embedStr += 'Spec';
+			embedStr += '\n';
+
+			var count = 1;
+			for(const val of result[i].m_Ranks) 
+			{
+
+				var date = new Date(val.m_iStartTime);
+				var dateFormat = date.getDate().toString().padStart(2, "0") + '/' + (date.getMonth()+1).toString().padStart(2, "0") + '/' + date.getFullYear();
+
+				embedStr += `${count++}`.padEnd(4);
+				embedStr += `${val.m_flRankPercent.toFixed(1)}`.padEnd(8);
+				embedStr += `${val.m_flAmount.toFixed(1)}`.padEnd(10);
+				embedStr += `${val.m_iDuration/1000}s`.padEnd(12);
+				embedStr += `${dateFormat}`.padEnd(12);
+				embedStr += `\'${val.m_szSpec}\'\n`;	
+			}
+
+			embedStr += '\n';
+			embedStr += 'Best'.padEnd(8);
+			embedStr += 'Median'.padEnd(10);
+			embedStr += 'Total Kills'.padEnd(16);
+			embedStr += 'Fastest';
+			embedStr += '\n';
+
+			embedStr += `${result[i].m_flBestAmount}`.padEnd(8);
+			embedStr += `${result[i].m_flMedianPerformance.toFixed(1)}`.padEnd(10);
+			embedStr += `${result[i].m_iTotalKills}`.padEnd(16);
+			embedStr += `${result[i].m_iFastestKill/1000}s`;
+
+			embedStr += "\`\`\`";
+
+			msg.channel.send(embedStr);
 		}
-
-		embedStr += '\n';
-		embedStr += 'Best'.padEnd(8);
-		embedStr += 'Median'.padEnd(10);
-		embedStr += 'Total Kills'.padEnd(16);
-		embedStr += 'Fastest';
-		embedStr += '\n';
-
-		embedStr += `${result.encounterRankings.m_flBestAmount}`.padEnd(8);
-		embedStr += `${result.encounterRankings.m_flMedianPerformance.toFixed(1)}`.padEnd(10);
-		embedStr += `${result.encounterRankings.m_iTotalKills}`.padEnd(16);
-		embedStr += `${result.encounterRankings.m_iFastestKill/1000}s`;
-
-		embedStr += "\`\`\`";
-
-		msg.channel.send(embedStr);
+		
 	})
 
     return true;

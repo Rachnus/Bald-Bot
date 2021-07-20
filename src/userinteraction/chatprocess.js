@@ -156,16 +156,16 @@ class ChatProcessHandler
         ChatProcessHandler.StopChatProcess(msg);
     
         var botProcess = new ChatProcess(processName, msg);
-        ChatProcessHandler.m_Processes.set(msg.author.id, botProcess);
+        ChatProcessHandler.s_Processes.set(msg.author.id, botProcess);
     
         // Some error handling
         if(!ChatProcessHandler.CheckChatProcessErrors(msg))
         {
-            ChatProcessHandler.m_Processes.delete(msg.author.id);
+            ChatProcessHandler.s_Processes.delete(msg.author.id);
             return;
         }
         
-        var prot = ChatProcessHandler.m_Prototypes.get(processName);
+        var prot = ChatProcessHandler.s_Prototypes.get(processName);
         if(prot != null)
             prot.m_fStartProcess(msg, botProcess);
     }
@@ -176,7 +176,7 @@ class ChatProcessHandler
      */
     static HandleChatProcess(msg)
     {
-        var botProcess = ChatProcessHandler.m_Processes.get(msg.author.id);
+        var botProcess = ChatProcessHandler.s_Processes.get(msg.author.id);
     
         // There was no process for this client
         if(botProcess == null)
@@ -201,7 +201,7 @@ class ChatProcessHandler
     
         var passedCheck = true;
     
-        var prot = ChatProcessHandler.m_Prototypes.get(botProcess.m_szName);
+        var prot = ChatProcessHandler.s_Prototypes.get(botProcess.m_szName);
         if(prot == null)
         {
             console.log(`Error: Could not find prototype for '${botProcess.m_szName}'`)
@@ -228,14 +228,14 @@ class ChatProcessHandler
 
     static StopChatProcess(msg)
     {
-        var botProcess = ChatProcessHandler.m_Processes.get(msg.author.id);
+        var botProcess = ChatProcessHandler.s_Processes.get(msg.author.id);
 
         // There was no process for this client
         if(botProcess == null)
             return;
 
         msg.author.send(`Stopped ${botProcess.m_szName}`);
-        ChatProcessHandler.m_Processes.delete(msg.author.id);
+        ChatProcessHandler.s_Processes.delete(msg.author.id);
     }
 
     static FinishChatProcess(msg)
@@ -243,9 +243,9 @@ class ChatProcessHandler
         if(!ChatProcessHandler.CheckChatProcessErrors(msg))
             return false;
     
-        var botProcess = ChatProcessHandler.m_Processes.get(msg.author.id);
+        var botProcess = ChatProcessHandler.s_Processes.get(msg.author.id);
 
-        var prot = ChatProcessHandler.m_Prototypes.get(botProcess.m_szName);
+        var prot = ChatProcessHandler.s_Prototypes.get(botProcess.m_szName);
         if(prot == null)
         {
             console.log(`Error: Could not find prototype for '${botProcess.m_szName}'`)
@@ -254,14 +254,14 @@ class ChatProcessHandler
 
         prot.m_fFinishProcess(msg, botProcess);
 
-        ChatProcessHandler.m_Processes.delete(msg.author.id);
+        ChatProcessHandler.s_Processes.delete(msg.author.id);
         msg.author.send(`Finished ${botProcess.m_szName}`);
         return true;
     }
 
     static CheckChatProcessErrors(msg)
     {
-        var botProcess = ChatProcessHandler.m_Processes.get(msg.author.id);
+        var botProcess = ChatProcessHandler.s_Processes.get(msg.author.id);
 
         // See if categories exists
         var eventsCategory = botProcess.m_Guild.channels.cache.find(channel => channel.name === Util.CATEGORY_EVENTS);
@@ -289,11 +289,11 @@ class ChatProcessHandler
         prot.m_fStartProcess = startFunc;
         prot.m_fHandleProcess = handleFunc;
         prot.m_fFinishProcess = finishFunc;
-        ChatProcessHandler.m_Prototypes.set(name, prot);
+        ChatProcessHandler.s_Prototypes.set(name, prot);
     }
 
-    static m_Processes = new Map();
-    static m_Prototypes = new Map();
+    static s_Processes = new Map();
+    static s_Prototypes = new Map();
 }
 
 module.exports = 

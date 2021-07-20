@@ -282,6 +282,39 @@ function GetEventChannelFromSignupChannel(signupChannel)
     return newPromise;
 }
 
+function GetRaidsFromSignupMessage(signupMessage)
+{
+    var words = signupMessage.split(" ");
+    var day = null;
+
+    for(var i = 0; i < words.length; i++)
+    {
+        var breakOuter = false;
+        for(var j = 0; j < Util.DATE_DAYS.length; j++)
+        {
+            if(words[i].toLowerCase().includes(Util.DATE_DAYS[j].toLowerCase()))
+            {
+                day = Util.DATE_DAYS[j].toUpperCase();
+                break;
+            }
+        }
+
+        if(breakOuter)
+            break;
+    }
+
+    if(day == null)
+        return null;
+
+    console.log(day);
+
+    words = signupMessage.split(day);
+    words = words[0].replace("**Signup for ", "");
+
+    words = words.split(' & ');                                 // put all raids in an array
+    words[words.length-1] = words[words.length-1].slice(0, -1); // remove the space from the last raid word
+}
+
 /**
  * Gets all sign up messages from a channel
  * 
@@ -295,6 +328,23 @@ function GetSignupsFromChannel(signupChannel)
         signupChannel.messages.fetch({after: 1, limit: 100}).then((signupMessages) => 
         {
             var result = [];
+
+            var signup = null;
+
+            // find the signup message to get the raid
+            for (const [key, signupMsg] of signupMessages.entries())
+            {
+                if(signupMsg.content.startsWith("**Signup for"))
+                {
+                    signup = signupMsg;
+                    break;
+                }
+            }
+
+            if(signup == null)
+                return;
+            
+            var raids = GetRaidsFromSignupMessage(signup.content);
 
             for (const [key, signupMsg] of signupMessages.entries())
             {
@@ -347,8 +397,6 @@ function GetSignupsFromChannel(signupChannel)
                 signup.m_iNatureResistance = Number(signupNature);
                 signup.m_iShadowResistance = Number(signupShadow);
                 signup.m_iArcaneResistance = Number(signupArcane);
-
-                console.log(signup.m_iFrostResistance + " " + signup.m_iNatureResistance);
 
                 signup.m_bAttuned = (signupAttuned === "attuned"?true:(signupAttuned==="nattuned"?false:null));
 

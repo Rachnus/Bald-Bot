@@ -54,15 +54,33 @@ function ToDiscordAttachment(text, attachmentName, extension = 'prolog', format 
 }
 
 var g_EditAttachmentTimer = null;
+var g_AttachMentsToSend = [];
+
+class TimerAttachmentData
+{
+    constructor()
+    {
+        this.m_DiscordAttachment = null;
+        this.m_DiscordChannel = null;
+        this.m_DiscordMessage = null;
+        this.m_szName = null;
+        this.m_szExt = null;
+    }
+}
 
 function EditDiscordMessage_Timer(discordChannel, discordMessage, attachment)
 {
-    // Cannot edit attachments, so delete the old one
-    if(discordMessage != null) 
-        discordMessage.delete(); 
+    for(var i = 0; i < g_AttachMentsToSend.length; i++)
+    {
+        // Cannot edit attachments, so delete the old one
+        if(g_AttachMentsToSend[i].m_DiscordMessage != null) 
+            g_AttachMentsToSend[i].m_DiscordMessage.delete();
+
+        g_AttachMentsToSend[i].m_DiscordChannel.send(g_AttachMentsToSend[i].m_DiscordAttachment);
+    }
 
     g_EditAttachmentTimer = null;
-    discordChannel.send(attachment);
+    g_AttachMentsToSend = [];
 }
 
 /**
@@ -83,10 +101,29 @@ function EditDiscordMessage(discordChannel, discordMessage, newText, codeBlock, 
         var att = ToDiscordAttachment(newText, attachmentName, extension);
         if(discordChannel == null)
             return;
-            
+        
+        var exist = false;
+        for(var i = 0; i < g_AttachMentsToSend.length; i++)
+        {
+            if(g_AttachMentsToSend[i].m_szName === attachmentName && g_AttachMentsToSend[i].m_szExt === extension)
+                exist = true;
+        }
+
+        if(!exist)
+        {
+            var attData = new TimerAttachmentData;
+            attData.m_DiscordAttachment = att;
+            attData.m_DiscordChannel = discordChannel;
+            attData.m_DiscordMessage = discordMessage;
+            attData.m_szName = attachmentName;
+            attData.m_szExt = extension;
+
+            g_AttachMentsToSend.push(attData);
+        }
+        
         if(g_EditAttachmentTimer != null)
             clearTimeout(g_EditAttachmentTimer);
-        g_EditAttachmentTimer = setTimeout(EditDiscordMessage_Timer, 10000, discordChannel, discordMessage, att);
+        g_EditAttachmentTimer = setTimeout(EditDiscordMessage_Timer, 10000);
     }
     else
     {

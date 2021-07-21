@@ -1,6 +1,8 @@
-const WOWAPI = require('wowgamedataapi-js');
+const WOWAPI    = require('wowgamedataapi-js');
+const WCLOGSAPI = require('warcraftlogsapi-js');
 
-var Util     = require('../util');
+var   Util     = require('../util');
+const Token    = require('../../token');
 
 const RESISTANCE_MIN = 0;
 const RESISTANCE_MAX = 365;
@@ -42,6 +44,8 @@ class EventSignup
         this.m_iArcaneResistance = null;
 
         this.m_bAttuned = null;
+
+        this.m_ZoneRankings = null;
     }
 }
 
@@ -284,6 +288,7 @@ function GetEventChannelFromSignupChannel(signupChannel)
 
 function GetRaidsFromSignupMessage(signupMessage)
 {
+    // first get the raids from the sign up message and store them in an array of strings
     var words = signupMessage.split(" ");
     var day = null;
 
@@ -313,6 +318,9 @@ function GetRaidsFromSignupMessage(signupMessage)
 
     words = words.split(' & ');                                 // put all raids in an array
     words[words.length-1] = words[words.length-1].slice(0, -1); // remove the space from the last raid word
+
+    // then get all raid/map IDs then translate them to warcraftlog zone IDs
+    return Util.GetZoneMapsFromGameMaps(words);
 }
 
 /**
@@ -345,6 +353,8 @@ function GetSignupsFromChannel(signupChannel)
                 return;
             
             var raids = GetRaidsFromSignupMessage(signup.content);
+    
+            var allstarQueries = [];
 
             for (const [key, signupMsg] of signupMessages.entries())
             {
@@ -398,6 +408,8 @@ function GetSignupsFromChannel(signupChannel)
                 signup.m_iShadowResistance = Number(signupShadow);
                 signup.m_iArcaneResistance = Number(signupArcane);
 
+                signup.m_ZoneRankings      = [];
+
                 signup.m_bAttuned = (signupAttuned === "attuned"?true:(signupAttuned==="nattuned"?false:null));
 
                 if(thumbsUp != null && thumbsUp.count >= 1)
@@ -415,10 +427,31 @@ function GetSignupsFromChannel(signupChannel)
                     // Player is declined
                     signup.m_Status = SignupStatus.DECLINED;
                 }
+
+                for(var i = 0; i < raids.length; i++)
+                {
+                    var opt = new WCLOGSAPI.Types.WCLOGSRankingOptions();
+                    opt.m_iZoneID = raids[i].m_iID;
+
+                    var allstarQuery = new WCLOGSAPI.Rankings.QueryAllstar(signupName, Token.WOW_REALM, Token.WOW_REGION, opt);
+                    allstarQueries.push(allstarQuery);
+                }
                 result.push(signup);
             }
 
-            resolve(result);
+            WCLOGSAPI.Rankings.GetAllstars(allstarQueries).then((allstars) =>
+            {
+                // after we get the rankings, we need to match the allstars with the signups
+                // result contains of all current signups, so add allstars to those signups
+                for(var i = 0; i < result.length; i++)
+                {
+                    for(var j = 0; j < raids.length; j++)
+                    {
+                        result[i].m_ZoneRankings.push(allstars[i*raids.length+j]);
+                    }
+                }
+                resolve(result);
+            });
         });
     });
 

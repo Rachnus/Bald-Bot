@@ -359,19 +359,63 @@ function GenerateRosterMessage(signups, eventMessage)
 
 function GenerateInfoMessage(signups, eventMessage)
 {
+    var lines = eventMessage.split("\n");
+    var raids = []
+
+    for(var i = 0; i < lines.length; i++)
+    {
+        if(lines[i].startsWith("**Raid"))
+        {
+            var raidsStr = lines[i].replace("**Raids**: ", "").replace("**Raid**: ", "").replace(/ & /g, "&");
+            if(raidsStr.includes('&'))
+                raids = raidsStr.split("&");
+            else
+                raids.push(raidsStr);
+        }
+    }
+
+    var zones = Util.GetZoneMapsFromGameMaps(raids);
+
     var infoStr = `${EVENT_LIST_INFO_PREFIX}\n\n`;
+
+    if(signups.length <= 0)
+        return infoStr;
+
+    var att, frr, fr, nr, sr, ar = false;
+
+    for(var i = 0; i < raids.length; i++)
+    {
+        var raidData = WOWAPI.RaidData.GetRaidData(raids[i]);
+        if(raidData == null)
+            continue;
+        
+        if(raidData.m_bAttunement) att = true;
+        if(raidData.m_bFrostRes)   frr = true;
+        if(raidData.m_bFireRes)    fr = true;
+        if(raidData.m_bNatureRes)  nr = true;
+        if(raidData.m_bShadowRes)  sr = true;
+        if(raidData.m_bArcaneRes)  ar = true;
+        
+    }
 
     infoStr += "#".padEnd(4);
     infoStr += "Name".padEnd(14);
     infoStr += "Class".padEnd(12);
     infoStr += "Spec".padEnd(16);
     infoStr += "Race".padEnd(12);
-    infoStr += "FrR".padEnd(5);
-    infoStr += "FR".padEnd(5);
-    infoStr += "NR".padEnd(5);
-    infoStr += "SR".padEnd(5);
-    infoStr += "AR".padEnd(5);
-    infoStr += "Attuned\n\n";
+    if(frr) infoStr += "FrR".padEnd(5);
+    if(fr) infoStr += "FR".padEnd(5);
+    if(nr) infoStr += "NR".padEnd(5);
+    if(sr) infoStr += "SR".padEnd(5);
+    if(ar) infoStr += "AR".padEnd(5);
+    if(att) infoStr += "Attuned".padEnd(10);
+
+    for(var i = 0; i < zones.length; i++)
+    {
+        infoStr += zones[i].m_szName.padEnd(26); // TODO Set minimum padding
+    }
+
+    infoStr += "\n\n";
 
     for(var i = 0; i < signups.length; i++)
     {   
@@ -381,12 +425,31 @@ function GenerateInfoMessage(signups, eventMessage)
         infoStr += `${signup.m_Class.m_szName}`.padEnd(12);
         infoStr += `${signup.m_Spec.m_szName}`.padEnd(16);
         infoStr += `${signup.m_Race.m_szName}`.padEnd(12);
-        infoStr += `${signup.m_iFrostResistance}`.padEnd(5);
-        infoStr += `${signup.m_iFireResistance}`.padEnd(5);
-        infoStr += `${signup.m_iNatureResistance}`.padEnd(5);
-        infoStr += `${signup.m_iShadowResistance}`.padEnd(5);
-        infoStr += `${signup.m_iArcaneResistance}`.padEnd(5);
-        infoStr += `${(signup.m_bAttuned==null)?'?':(signup.m_bAttuned?"Yes":"No")}\n`;
+        if(frr) infoStr += `${signup.m_iFrostResistance}`.padEnd(5);
+        if(fr) infoStr += `${signup.m_iFireResistance}`.padEnd(5);
+        if(nr) infoStr += `${signup.m_iNatureResistance}`.padEnd(5);
+        if(sr) infoStr += `${signup.m_iShadowResistance}`.padEnd(5);
+        if(ar) infoStr += `${signup.m_iArcaneResistance}`.padEnd(5);
+        if(att) infoStr += `${(signup.m_bAttuned==null)?'?':(signup.m_bAttuned?"Yes":"No")}`.padEnd(10);
+
+        for(var j = 0; j < signup.m_ZoneRankings.length; j++)
+        {
+            var allstar = signup.m_ZoneRankings[j];
+            if(allstar != null)
+            {
+                var allstarRank = '?';
+                if(allstar.m_Allstars != null && allstar.m_Allstars.length > 0)
+                    allstarRank = allstar.m_Allstars[0].m_iRank;
+
+                infoStr += `${allstar.m_flBestPerformanceAverage.toFixed(1)} (WRank: ${allstarRank})`.padEnd(26);
+            }
+            else
+            {
+                infoStr += `?`.padEnd(26);
+            }
+        }
+
+        infoStr += "\n";
     }
 
     return infoStr;

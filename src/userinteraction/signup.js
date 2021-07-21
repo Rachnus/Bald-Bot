@@ -432,6 +432,14 @@ function GetSignupsFromChannel(signupChannel)
                 {
                     var opt = new WCLOGSAPI.Types.WCLOGSRankingOptions();
                     opt.m_iZoneID = raids[i].m_iID;
+                    if( signup.m_Spec.m_szName.toLowerCase() === "holy" ||
+                        signup.m_Spec.m_szName.toLowerCase() === "discipline" ||
+                        signup.m_Spec.m_szName.toLowerCase() === "restoration")
+                    {
+                        opt.m_Metric = WCLOGSAPI.Types.WCLOGSCharacterRankingMetricType.HPS;
+                    }
+                    else
+                        opt.m_Metric = WCLOGSAPI.Types.WCLOGSCharacterRankingMetricType.DPS;
 
                     var allstarQuery = new WCLOGSAPI.Rankings.QueryAllstar(signupName, Token.WOW_REALM, Token.WOW_REGION, opt);
                     allstarQueries.push(allstarQuery);

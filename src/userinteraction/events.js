@@ -435,18 +435,10 @@ function GenerateInfoMessage(signups, eventMessage)
         for(var j = 0; j < signup.m_ZoneRankings.length; j++)
         {
             var allstar = signup.m_ZoneRankings[j];
-            if(allstar != null)
-            {
-                var allstarRank = '?';
-                if(allstar.m_Allstars != null && allstar.m_Allstars.length > 0)
-                    allstarRank = allstar.m_Allstars[0].m_iRank;
-
-                infoStr += `${allstar.m_flBestPerformanceAverage.toFixed(1)} (WRank: ${allstarRank})`.padEnd(26);
-            }
+            if(allstar != null && allstar.m_Allstars != null && allstar.m_Allstars.length > 0)
+                infoStr += `${allstar.m_flBestPerformanceAverage.toFixed(1)} (WRank: ${allstar.m_Allstars[0].m_iRank})`.padEnd(26);
             else
-            {
                 infoStr += `?`.padEnd(26);
-            }
         }
 
         infoStr += "\n";

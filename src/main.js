@@ -44,9 +44,12 @@ bot.on('message', msg =>
     var parent = msg.guild.channels.cache.get(msg.channel.parentID);
     if(parent != null && parent.name == Util.CATEGORY_SIGNUP)
     {
-        // If this message is in a channel under signup category
-        Signup.HandleSignup(msg);
-        return;
+        if(msg.channel.name.includes('-signup'))
+        {
+            // If this message is in a channel under signup category
+            Signup.HandleSignup(msg);
+            return;
+        }
     }
 
     if(!msg.content.startsWith(Commands.COMMAND_PREFIX) || msg.author.bot)

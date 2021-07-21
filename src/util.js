@@ -1,4 +1,6 @@
 const { MessageAttachment } = require("discord.js");
+const WOWAPI                = require('wowgamedataapi-js');
+const WCLOGSAPI             = require('warcraftlogsapi-js');
 
 const DATE_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const CATEGORY_EVENTS = "EVENTS";
@@ -132,11 +134,64 @@ function EditDiscordMessage(discordChannel, discordMessage, newText, codeBlock, 
         if(codeBlock)
             message = `\`\`\`${extension}\n` + message + '```';
         
-        if(discordMessage != null) 
-            discordMessage.edit(message); 
+        if(discordMessage != null)
+        {
+            if(discordMessage.attachments.first() != null)
+            {
+                console.log("not nul");
+                discordMessage.delete();
+                discordChannel.send(message);
+            }
+            else
+                discordMessage.edit(message);
+        }
         else 
             discordChannel.send(message);
     }
+}
+
+/**
+ * Get warcraft logs zone maps from wow official game maps
+ * 
+ * Example: "gruul's lair" would return "Gruul / Magtheridon" zone (id 1008)
+ *  and "magtheridon's lair" would also return "Gruul / Magtherion" zone (id 1008)
+ * 
+ * @param gameMaps - Array of strings
+ * @returns 
+ */
+function GetZoneMapsFromGameMaps(gameMaps)
+{
+    var raidZones = [];
+
+    // then get all raid/map IDs then translate them to warcraftlog zone IDs
+    for(var i = 0; i < gameMaps.length; i++)
+    {
+        var gameMap = WOWAPI.GameMap.GetGameMap(gameMaps[i]);
+        var dungEnc = gameMap.m_Encounters[0];
+
+        // loop through warcraftlogs zones to find proper zones for the official wow raids
+        // we have to do this since theres scenarios where warcraftlogs store zones such as "Gruul / Magtheridon", instead of "Gruul's Lair" and "Magtheridon's Lair"
+        // since warcraftlogs does not store official wow zone IDs, but official encounter IDs (raid ID vs boss ID)
+        for (const [key, value] of WCLOGSAPI.Zones.GetZoneEntries()) 
+        {
+            var breakOuter = false;
+            for(var j = 0; j < value.m_Encounters.length; j++)
+            {
+                if(value.m_Encounters[j].m_iID === dungEnc.m_iID)
+                {
+                    if(raidZones.indexOf(value) == -1)
+                        raidZones.push(value);
+
+                    breakOuter = true;
+                    break;
+                }
+            }
+            if(breakOuter)
+                break;
+        }
+    }
+
+    return raidZones;
 }
 
 function IsNumeric(str) 
@@ -161,6 +216,8 @@ function IsIntBetween(val, min, max)
 
      ToDiscordAttachment,
      EditDiscordMessage,
+
+     GetZoneMapsFromGameMaps,
 
      DATE_DAYS,
      CATEGORY_EVENTS,
